@@ -193,6 +193,39 @@ Change IP/MAC in `ESP32_TelemetryHub_V2.ino` at the top of the file.
 
 ---
 
+Note there are now **two independent wind readings** in the same record:
+- `Wind_kmh` — from the analog anemometer on the Mega (voltage-based estimate)
+- `RS485_Wind_kmh` / `RS485_WindDir_deg` — from the RS485 ultrasonic anemometer polled directly by the ESP32 (higher-precision speed + direction)
+
+## Reliability Features
+- Non-blocking UART parser for the Mega link (no blocking `delay()` calls)
+- Stale-data watchdog: marks Mega link as lost after 6 seconds of silence and sentinel-fills with `-999.0`
+- Modbus RTU read failure handling: defaults RS485 wind speed/direction to `-99.0` and logs the specific Modbus error code instead of crashing
+- Automatic SD card remount every 30 seconds if the initial mount fails
+- TCP dead-socket recycling to prevent orphaned client connections
+- DHT22 read failures default to `-99.0` instead of logging `NaN`
+
+## Network Access
+- Connect any TCP client (e.g., a ground station laptop) to `192.168.1.177:5000` to receive the live 22-field CSV stream in real time.
+
+## Required Libraries
+- SPI
+- SD
+- Ethernet (W5500-compatible)
+- DHT sensor library
+- EasyBNO055_ESP (or equivalent BNO055 wrapper)
+- **ModbusMaster** (for RS485 ultrasonic anemometer communication)
+
+## How to Upload
+1. Open in Arduino IDE and select your **ESP32** board variant.
+2. Install all required libraries via Library Manager, including **ModbusMaster**.
+3. Wire all peripherals per the table above, ensuring the RS485-to-TTL converter is correctly connected to GPIO16/GPIO17 and the anemometer's Modbus slave ID matches `1`.
+4. Connect Mega's Serial1 TX/RX to ESP32 GPIO26/27 as documented.
+5. Upload and open Serial Monitor at 115200 baud to confirm SD mount, Ethernet IP, Modbus RTU status, and incoming Mega/anemometer data.
+
+## Notes
+- This board is the central data-fusion and distribution point of the aerostat telemetry system, combining Mega ground-truth sensor data, local orientation/environmental sensors, and RS485 ultrasonic wind data before persisting and broadcasting.
+- The dual wind-speed sources (analog anemometer vs. RS485 ultrasonic anemometer) allow cross-validation of wind readings in the field.
 ## Safety Features
 
 - **Hardware Watchdog (8s)** on Mega — auto-resets on firmware freeze
